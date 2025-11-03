@@ -78,40 +78,41 @@ end
 # 通常の操作(取得，追加，削除)
 ###################################################################################
 
-@inline function get_p(pcfg::PCFG_all, w1::ta, A::cha, B::cha, C::cha)
+@inline function get_p(pcfg::PCFG_all, w2::ta, w1::ta, A::cha, B::cha, C::cha)
     p = p_mulitply_wildcard(pcfg, B, C, 1.0)
-    x, y = encode(w1,A,B,C)
+    x, y = encode(w2,w1,A,B,C)
     p*= cascade_pq(enc(1), y, pcfg.sw)
     p*= cascade_pq(        x, y, pcfg.t2)[1]
 end
-@inline function get_p(pcfg::PCFG_all, w1::ta, A::cha, u::ta)
-    x, y = encode(w1,A,u)
+@inline function get_p(pcfg::PCFG_all, w2::ta, w1::ta, A::cha, u::ta)
+    x, y = encode(w2,w1,A,u)
     p = cascade_pq(enc(0), y, pcfg.sw)
     p*= cascade_pq(        x, y, pcfg.t0)
 end
 
-function increment(pcfg::PCFG_all, w1::ta, A::cha, B::cha, C::cha)
+function increment(pcfg::PCFG_all, w2::ta, w1::ta, A::cha, B::cha, C::cha)
     @assert A!= EX
     @assert B!= EX
     @assert C!= EX
-    x, y = encode(w1,A,B,C)
+    x, y = encode(w2,w1,A,B,C)
     cascade_add(enc(1), y, pcfg.sw)
     cascade_add(        x, y, pcfg.t2)
 end
-function increment(pcfg::PCFG_all, w1::ta, A::cha, u::ta)
+function increment(pcfg::PCFG_all, w2::ta, w1::ta, A::cha, u::ta)
+
     @assert A!= EX
-    x, y = encode(w1,A,u)
+    x, y = encode(w2,w1,A,u)
     cascade_add(enc(0), y, pcfg.sw)
     cascade_add(        x, y, pcfg.t0)
 end
 
-function decrement(pcfg::PCFG_all, w1::ta, A::cha, B::cha, C::cha)
-    x, y = encode(w1,A,B,C)
+function decrement(pcfg::PCFG_all, w2::ta, w1::ta, A::cha, B::cha, C::cha)
+    x, y = encode(w2,w1,A,B,C)
     cascade_del(enc(1), y, pcfg.sw)
     cascade_del(        x, y, pcfg.t2)
 end
-function decrement(pcfg::PCFG_all, w1::ta, A::cha, u::ta)
-    x, y = encode(w1,A,u)
+function decrement(pcfg::PCFG_all, w2::ta, w1::ta, A::cha, u::ta)
+    x, y = encode(w2,w1,A,u)
     cascade_del(enc(0), y, pcfg.sw)
     cascade_del(        x, y, pcfg.t0)
 end
@@ -123,15 +124,15 @@ end
 # HPYP全体の確率の上限: p+q*1 = p+q, 下限 p+ q*0 = p
 # p < p_slice < p+q でなければ　(p, 0.0) を返す (p のみで判断できる)
 
-function slice(pcfg::PCFG_all, w1::ta, A::cha, B::cha, C::cha, p_slice::Float64 )
+function slice(pcfg::PCFG_all, w2::ta, w1::ta, A::cha, B::cha, C::cha, p_slice::Float64 )
     p = p_mulitply_wildcard(pcfg, B, C, 1.0)
-    x, y = encode(w1,A,B,C)
+    x, y = encode(w2,w1,A,B,C)
     p *= cascade_pq(enc(1), y, pcfg.sw)
     p,q = cascade_pq_with_cutoff(x, y, p_slice,  p, pcfg.t2)
     q == 0.0 ? Int(p_slice < p) : Int(p_slice < p+q)
 end
-function slice(pcfg::PCFG_all, w1::ta, A::cha, u::ta, p_slice::Float64 )
-    x, y = encode(w1,A,u)
+function slice(pcfg::PCFG_all, w2::ta, w1::ta, A::cha, u::ta, p_slice::Float64 )
+    x, y = encode(w2,w1,A,u)
     p = cascade_pq(enc(0), y, pcfg.sw) 
     p,q = cascade_pq_with_cutoff(x, y, p_slice,  p, pcfg.t0)
     q == 0.0 ? Int(p_slice < p) : Int(p_slice < p+q)
@@ -166,17 +167,18 @@ end
 function check_probsum(c::PCFG_all)
     Σ = _Σ(c)
     for w1 in ta(0):ta(Σ)
+        
         for A in c.V
             p0,p2,p3 = 0.0,0.0,0.0
             for B in cha(1):cha(255) # c.V #
                 for C in cha(1):cha(255) # c.V #
-                    p2 += get_p(c, w1, A, B, C)
-                    x, y = encode( w1, A, B, C)
+                    p2 += get_p(c, w2, w1, A, B, C)
+                    x, y = encode( w2, w1, A, B, C)
                     p3 += cascade_pq(        x, y, c.t2)[1]
                 end
             end
             for u in ta(1):ta(Σ)
-                p0 += get_p(c, w1, A, u)
+                p0 += get_p(c, w2,w1, A, u)
             end
             #_, y = encode( w1, A, cha(0), cha(0))
             _, y = encode( ta(0), A, cha(0), cha(0))

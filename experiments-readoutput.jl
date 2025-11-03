@@ -48,7 +48,7 @@ function show_hyper(c::PCFG_all)
 end
 
 function save_model(i, c::PCFG_all, bags_tr::Vector{T}, logging::Vector{T2}) where {T<:Bag, T2}
-    save("./output/model-$(typeof(T)-$i.jld", 
+    save("./output/model-\$(typeof(T)-\$i.jld", 
         "pcfg", c, 
         "rules", map(BagSave, bags_tr), 
         "logging", logging )

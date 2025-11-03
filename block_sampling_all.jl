@@ -54,17 +54,19 @@ function build_block_main(bag::Bag_block, cfg::PCFG_all, ::Val{N}) where {N}
     #CYKブロックの最下辺
     for i in 1:L
         w1 = (i>1 ? w[i-1] : PAD)
+        w2 = (i>2 ? w[i-2] : PAD)
         u = w[i]
         for a in 1:N
-            p = get_p(cfg, w1, V[a], u)
+            p = get_p(cfg, w2, w1, V[a], u)    
             tab[i,i,a] = p
         end
     end
     #CYKブロックを上位へ向かって構築
     for i in L-1:-1:1
         w1 = (i>1 ? w[i-1] : PAD)
+        w2 = (i>2 ? w[i-2] : PAD)
         for a in 1:N; for b in 1:N; for c in 1:N
-            mat[a, b, c] = get_p(cfg, w1, V[a], V[b], V[c])
+            mat[a,b,c] = get_p(cfg, w2, w1, V[a], V[b], V[c])
         end;end;end
         for j in i+1:L
 #            j = i+d
@@ -75,8 +77,8 @@ function build_block_main(bag::Bag_block, cfg::PCFG_all, ::Val{N}) where {N}
                     for b in 1:N
                         for c in 1:N
                             #p = get_p(cfg, w1, V[a], V[b], V[c])
-                            p = mat[a,b,c] 
-                            psum += tab[i,k,b] * tab[k+1,j,c] * p
+                            p = mat[a,b,c]                   # for terminal rules
+                            psum += tab[i,k,b] * tab[k+1,j,c] * p # for non-terminal rules
                         end
                     end
                 end
@@ -96,16 +98,17 @@ function sub_sample_rules(i::Int64, j::Int64, a::Int64, idx::Int64, bag::Bag_blo
     V = cfg.V
     w = bag.sample
     w1 = (i>1 ? w[i-1] : PAD)
-    i == j &&( bag.sampled_type0[i] = join_xy(encode(w1, V[a], w[i])); return idx)
+    w2 = (i>2 ? w[i-2] : PAD)
+    i == j &&( bag.sampled_type0[i] = join_xy(encode(w2, w1, V[a], w[i])); return idx)
     tab = bag.tab
     water = rand() * tab[i,j,a] / bag.scaler
     for k in i:j-1
         for b in 1:N
             for c in 1:N
-                p = get_p(cfg, w1, V[a], V[b], V[c])
+                p = get_p(cfg, w2, w1, V[a], V[b], V[c])
                 water -= tab[i,k,b] * tab[k+1,j,c] * p
                 if water < 0.0
-                    bag.sampled_type2[k] = join_xy(encode(w1, V[a], V[b], V[c]))
+                    bag.sampled_type2[k] = join_xy(encode(w2, w1, V[a], V[b], V[c]))
                     idx = sub_sample_rules(i,  k, b,  idx+1, bag, cfg)
                     idx = sub_sample_rules(k+1,j, c,  idx, bag, cfg)
                     return idx

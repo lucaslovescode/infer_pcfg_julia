@@ -19,13 +19,24 @@ const ST_ID =  2 # CYK table 中の id (何番目に大きいシンボルか？)
 
 const PAD    = ta(0)     # 0    が padding のための非終端記号
 
-@inline encode(w1::ta, A::cha, B::cha, C::cha) = (enc(B)<<LEN_CHA +C, enc(w1)<<LEN_CHA +A)
-@inline encode(w1::ta, A::cha, u::ta         ) = (enc(u)            , enc(w1)<<LEN_CHA +A)
+@inline encode(w2::ta, w1::ta, A::cha, B::cha, C::cha) = (enc(B)<<LEN_CHA + C, 
+                                                enc(w2)<<(LEN_TA + LEN_CHA) + enc(w1)<<LEN_CHA + A)
+@inline encode(w2::ta, w1::ta, A::cha, u::ta         ) =  (enc(u), 
+     enc(w2)<<(LEN_TA + LEN_CHA) + enc(w1)<<LEN_CHA + A)
 join_xy(etup::Tuple{enc,enc}) = etup[1] + etup[2] << 2LEN_CHA 
-decode_t2(e::enc) = ( ta((e>>3LEN_CHA)&MSK_TA ), cha((e>>2LEN_CHA)&MSK_CHA),
-                     cha((e>>1LEN_CHA)&MSK_CHA), cha((e          )&MSK_CHA) )
-decode_t0(e::enc) = ( ta((e>>3LEN_CHA)&MSK_TA ), cha((e>>2LEN_CHA)&MSK_CHA), 
-                      ta((e          )&MSK_TA )                             )
+decode_t2(e::enc) = ( 
+    ta((e>>(2*LEN_CHA + LEN_CHA + LEN_TA))&MSK_TA),  # w2: shift by 16+8+10=34
+    ta((e>>(2*LEN_CHA + LEN_CHA))&MSK_TA),           # w1: shift by 16+8=24
+    cha((e>>(2*LEN_CHA))&MSK_CHA),                   # A:  shift by 16
+    cha((e>>LEN_CHA)&MSK_CHA),                       # B:  shift by 8
+    cha((e)&MSK_CHA)                                 # C:  shift by 0
+)
+decode_t0(e::enc) = ( 
+    ta((e>>(2*LEN_CHA + LEN_CHA + LEN_TA))&MSK_TA),   # w2: shift by 34
+    ta((e>>(2*LEN_CHA + LEN_CHA))&MSK_TA),            # w1: shift by 24
+    cha((e>>(2*LEN_CHA))&MSK_CHA),                    # A:  shift by 16
+    ta((e)&MSK_TA)                                     # u:  shift by 0
+)
 
 
 ###################################################################################

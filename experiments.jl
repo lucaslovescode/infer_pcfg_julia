@@ -1,21 +1,25 @@
+include("PCFG_all.jl")
 include("slice_sampling.jl")
-include("block_sampling.jl")
+include("block_sampling_all.jl")
 include("hyper_parameters.jl")
+include("tokenize_selfies.jl")
+include("sampling.jl")
 
 #using BenchmarkTools
 using Random
 using JLD
 using DelimitedFiles
 using Dates
-
+using Statistics
 
 ###################################################################################
 # 初期化，テスト，訓練，ハイパーパラメータの表示，保存
 ###################################################################################
 
-function init(sentences)
-    c = PCFG_all(301,255)
-    bags_init = [ Bag_block(smp,c) for smp in sentences ]
+function init(sentences,vocab_size)
+    initial_V = [cha(EX+1)]  # Create the vector properly
+    c = PCFG_all(vocab_size, initial_V)
+    bags_init = [ Bag_block(smp) for smp in sentences ]
     for bag in bags_init
         resample(bag, c)
         add_sampled_new(bag, c)
@@ -50,19 +54,21 @@ function show_hyper(c::PCFG_all)
 end
 
 function save_model(output_dirname, i, 
-        c::PCFG_all, bags_tr::Vector{T}, logging::Vector{T2}) where {T<:Bag, T2}
+        c::PCFG_all, bags_tr::Vector{T}, logging::Vector{T2}, vocab::Dict{String, ta}) where {T<:Bag, T2}
     save(output_dirname*"model-$i.jld", 
         "pcfg", c, 
         "rules", map(BagSave, bags_tr), 
-        "logging", logging )
+        "logging", logging, 
+        "vocab", vocab)
 end
 
 function load_model(output_file_name, T)
     obj = load(output_file_name)
     c = obj["pcfg"]
     #@show obj["rules"]
-    bags_tr = (x->T(x,c)).(obj["rules"])
-    c, bags_tr, obj["logging"]
+    bags_tr = (x->T(x)).(obj["rules"])
+    vocab = obj["vocab"]
+    c, bags_tr, obj["logging"], vocab
 end
 
 function read_brown()
@@ -80,7 +86,7 @@ end
 ###################################################################################
 function main_train(T, output_dirname)
     mkpath(output_dirname)
-    data_tr, data_te = read_brown()
+    data_tr, data_te, vocab = read_selfies("selfies_training.txt")
     
     #sentences = [[1,2,3,4,1,2], [1,2,3,4,1,2,1,2], [3,4,3,4,3,4], [1,2,3,4,1,2]]
     #sentences = [ [ta(a) for a in l] for l in sentences ]
@@ -90,23 +96,86 @@ function main_train(T, output_dirname)
     logging = []
 
     #初期化
-    c, bags_init = init(data_tr)
+    c, bags_init = init(data_tr,length(vocab))
     #訓練用バッグ
-    bags_tr = [ T(BagSave(bag),c) for bag in bags_init ]
+    bags_tr = [ T(BagSave(bag)) for bag in bags_init ]
     #テスト用バッグ
-    bags_te = [ Bag_block(smp,c) for smp in data_te ]
+    bags_te = [ Bag_block(smp) for smp in data_te ]
 
     update_V(c)
     test(c, bags_te, logging)
-    save_model(output_dirname, 0, c, bags_tr, logging)
-    for i in 1:100
-        mcmc_hyperparam(c)
+    save_model(output_dirname, 0, c, bags_tr, logging,vocab)
+    for i in 1:30
+        Base.invokelatest(mcmc_hyperparam, c)
         train(c, bags_tr)
         if i%10==0
             test(c, bags_te, logging)
-            save_model(output_dirname, i, c, bags_tr, logging)
+            save_model(output_dirname, i, c, bags_tr, logging,vocab)
         end
     end
+    
+    rev_vocab = Dict(v => k for (k, v) in vocab)
+
+    # Collect all nonterminals and terminals
+    nonterminals = Set{Int}()
+    terminals = Set{Int}()
+
+    # Collect from binary rules
+    for (encoded_rule, bins) in c.t2.rule.bins_dic
+        count = sum(bins)
+        if count > 0
+            w2, w1, A, B, C = decode_t2(encoded_rule)
+            push!(nonterminals, A, B, C)
+        end
+    end
+
+    # Collect from terminal rules
+    for (encoded_rule, bins) in c.t0.t0_rule.bins_dic
+        count = sum(bins)
+        if count > 0
+            w2, w1, A, u = decode_t0(encoded_rule)
+            push!(nonterminals, A)
+            push!(terminals, u)
+        end
+    end
+
+    open("pcfg_rules.txt", "w") do f
+        println(f, "NONTERMINALS")
+        for nt in sort(collect(nonterminals))
+            println(f, "NT_$nt")
+        end
+        
+        println(f, "\nTERMINALS")
+        for term in sort(collect(terminals))
+            terminal_str = get(rev_vocab, term, "UNKNOWN_$term")
+            println(f, "$terminal_str")
+        end
+
+        println(f, "\nBINARY RULES")
+        for (encoded_rule, bins) in sort(collect(c.t2.rule.bins_dic))
+            count = sum(bins)
+            if count > 0
+                w2, w1, A, B, C = decode_t2(encoded_rule)
+                w2_str = w2 == PAD ? "PAD" : get(rev_vocab, w2, "UNK_$w2")
+                w1_str = w1 == PAD ? "PAD" : get(rev_vocab, w1, "UNK_$w1")
+                println(f, "NT_$A, NT_$B, NT_$C  $count")
+            end
+        end
+        
+        println(f, "\nTERMINAL RULES")
+        for (encoded_rule, bins) in sort(collect(c.t0.t0_rule.bins_dic))
+            count = sum(bins)
+            if count > 0
+                w2, w1, A, u = decode_t0(encoded_rule)
+                w2_str = w2 == PAD ? "PAD" : get(rev_vocab, w2, "UNK_$w2")
+                w1_str = w1 == PAD ? "PAD" : get(rev_vocab, w1, "UNK_$w1")
+                terminal = get(rev_vocab, u, "UNKNOWN_$u")
+                println(f, "NT_$A $terminal, $terminal $count")
+            end
+        end
+end
+
+println("Rules saved to pcfg_rules.txt")
 end
 
 ###################################################################################
@@ -128,7 +197,7 @@ elseif length(ARGS)>=2 && ARGS[1] == "readlog"
     c, bags_tr, logging = load_model(output_file_name)
     println("last logging:",  logging[end])
     data_tr, data_te = read_brown()
-    bags_te = [ Bag_block(smp,c) for smp in data_te ]
+    bags_te = [ Bag_block(smp) for smp in data_te ]
     test(c, bags_te, logging)
 
 elseif length(ARGS)>=2 && ARGS[1] == "resume" 
@@ -141,7 +210,7 @@ elseif length(ARGS)>=2 && ARGS[1] == "resume"
     data_tr, data_te = read_brown()
     Random.seed!(0)
     logging = []
-    bags_te = [ Bag_block(smp,c) for smp in data_te ]
+    bags_te = [ Bag_block(smp) for smp in data_te ]
     #test(c, bags_te, logging)
     save_model(output_dirname, 0, c, bags_te, logging)
     for i in 1:100

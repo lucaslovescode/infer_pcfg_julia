@@ -79,9 +79,20 @@ function str_mcmc_hyperparam(c::T) where T<:PCFG
     lines=[]
     push!(lines, "function mcmc_hyperparam(pcfg::$T)")
     for modelname in fieldnames(T)
-        model = getproperty(c, Meta.parse("$modelname") )
-        for layname in fieldnames(typeof(model))
-            push!(lines, "    mcmc_θ_d(pcfg.$modelname.$layname)")
+        model = getproperty(c, modelname)
+        modeltype = typeof(model)
+        
+        # Skip non-struct fields (like Vector{UInt8}, UInt8, etc.)
+        if !isstructtype(modeltype) || isempty(fieldnames(modeltype))
+            continue
+        end
+        
+        for layname in fieldnames(modeltype)
+            lay = getproperty(model, layname)
+            # Only call mcmc_θ_d on PYPLayer or Uniform types
+            if typeof(lay) <: PYPLayer || typeof(lay) <: Uniform
+                push!(lines, "    mcmc_θ_d(pcfg.$modelname.$layname)")
+            end
         end
     end
     push!(lines,"end")

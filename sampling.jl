@@ -27,8 +27,18 @@ end
 # サンプルされたルールの一括の追加と削除
 ###################################################################################
 
-#add_sampled_new(bag, c) = add_sampled(bag, c, false)
-
+function add_sampled_new( bag::T, c::G) where {T <: Bag, G <: PCFG}
+    # 0 に割り当てられた場合は，新しいVに割り当て直す
+    assign_EX(c, bag.sampled_type0, bag.sampled_type2)
+    for e in bag.sampled_type0
+        increment(c, decode_t0(e)...)
+    end
+    for e in bag.sampled_type2
+        increment(c, decode_t2(e)...)
+    end
+    false && update_V(c)
+    0
+end
 function add_sampled( bag::T, c::G, need_update=true) where {T <: Bag, G <: PCFG}
     # 0 に割り当てられた場合は，新しいVに割り当て直す
     assign_EX(c, bag.sampled_type0, bag.sampled_type2)
