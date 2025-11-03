@@ -19,8 +19,6 @@ function read_selfies(filename::String)
     data_te = sentences[te]
     data_tr = sentences[te .== false]
     
-    data_tr = data_tr[1:min(100, length(data_tr))]  # Just first 100 samples
-    data_te = data_te[1:min(10, length(data_te))]   # Just first 10 samples
 
     @show length(data_te) length(data_tr)
     @show length(vocab)
