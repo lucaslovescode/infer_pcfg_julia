@@ -10,7 +10,7 @@
 
 set -euo pipefail
 module purge
-module load julia/1.8.5
+module load julia/1.8.1
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
 export JULIA_PROJECT=${SLURM_SUBMIT_DIR}
