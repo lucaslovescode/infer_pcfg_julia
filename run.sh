@@ -24,7 +24,7 @@ export DATA_DIR="${RUNDIR}/data"
 export OUT_DIR="${RUNDIR}/out"
 mkdir -p "$OUT_DIR"
 
-srun julia --color=yes Slurm.jl
+julia --color=yes Slurm.jl
 
 mkdir -p "${SLURM_SUBMIT_DIR}/out"
 rsync -a "${OUT_DIR}/" "${SLURM_SUBMIT_DIR}/out/"
