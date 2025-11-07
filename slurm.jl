@@ -11,7 +11,7 @@ const _scratch = get(ENV, "SLURM_TMPDIR", get(ENV, "RC_SCRATCH", joinpath(ROOT, 
 const OUT_DIR  = get(ENV, "OUT_DIR", joinpath(_scratch, "pcfg_run_" * string(getpid())))
 isdir(OUT_DIR) || mkpath(OUT_DIR)
 
-const TRAIN_FILE = get(ENV, "TRAIN_FILE", joinpath(DATA_DIR, "training.txt"))
+const TRAIN_FILE = get(ENV, "TRAIN_FILE", joinpath(ROOT, "training.txt"))
 const TOK_BASENAME = get(ENV, "TOK_BASENAME", "selfies_training")
 
 smiles_file_to_selfies_file(TRAIN_FILE, joinpath(OUT_DIR, TOK_BASENAME))
