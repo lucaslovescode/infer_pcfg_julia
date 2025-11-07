@@ -1,5 +1,5 @@
 const ROOT = abspath(@__DIR__)
-include(joinpath(ROOT, "packages.jl"))
+include(joinpath(ROOT, "pakages.jl"))
 include(joinpath(ROOT, "experiments.jl"))
 include(joinpath(ROOT, "tokenize_selfies.jl"))
 
