@@ -105,10 +105,10 @@ function main_train(T, output_dirname)
     update_V(c)
     test(c, bags_te, logging)
     save_model(output_dirname, 0, c, bags_tr, logging,vocab)
-    for i in 1:30
+    for i in 1:3000
         Base.invokelatest(mcmc_hyperparam, c)
         train(c, bags_tr)
-        if i%10==0
+        if i%100==0
             test(c, bags_te, logging)
             save_model(output_dirname, i, c, bags_tr, logging,vocab)
         end
