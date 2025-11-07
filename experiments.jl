@@ -86,7 +86,9 @@ end
 ###################################################################################
 function main_train(T, output_dirname)
     mkpath(output_dirname)
-    data_tr, data_te, vocab = read_selfies("selfies_training.txt")
+    
+    const OUT_DIR  = get(ENV, "OUT_DIR", joinpath(_scratch, "pcfg_run_" * string(getpid())))
+    data_tr, data_te, vocab = read_selfies(joinpath(OUT_DIR, "/selfies_training.txt"))
     
     #sentences = [[1,2,3,4,1,2], [1,2,3,4,1,2,1,2], [3,4,3,4,3,4], [1,2,3,4,1,2]]
     #sentences = [ [ta(a) for a in l] for l in sentences ]
