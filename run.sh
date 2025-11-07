@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=128G
 #SBATCH --time=08:00:00
-#SBATCH --account=YOUR_ALLOC_HERE
+#SBATCH --account=ucb736_asc1
 #SBATCH --output=slurm-%j.out
 
 set -euo pipefail
