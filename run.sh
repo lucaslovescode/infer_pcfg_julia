@@ -40,7 +40,7 @@ export OUT_DIR="${RUNDIR}/out"
 mkdir -p "$OUT_DIR"
 
 # --- Run Julia job ---
-julia --color=yes Slurm.jl
+julia --color=yes slurm.jl
 
 # --- Copy results back safely ---
 mkdir -p "${SLURM_SUBMIT_DIR}/out"
