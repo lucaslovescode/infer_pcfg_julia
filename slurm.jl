@@ -14,7 +14,7 @@ isdir(OUT_DIR) || mkpath(OUT_DIR)
 const TRAIN_FILE = get(ENV, "TRAIN_FILE", joinpath(DATA_DIR, "training.txt"))
 const TOK_BASENAME = get(ENV, "TOK_BASENAME", "selfies_training")
 
-selfies_to_tokens(TRAIN_FILE, joinpath(OUT_DIR, TOK_BASENAME))
+smiles_file_to_selfies_file(TRAIN_FILE, joinpath(OUT_DIR, TOK_BASENAME))
 main_train(Bag_block, ROOT)
 
 open(joinpath(OUT_DIR, "run_manifest.txt"), "w") do io
