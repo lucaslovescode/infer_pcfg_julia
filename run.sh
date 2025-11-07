@@ -5,6 +5,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=128G
 #SBATCH --time=08:00:00
+#SBATCH --partition=amilan
+#SBATCH --qos=normal
 #SBATCH --account=ucb736_asc1
 #SBATCH --output=slurm-%j.out
 
