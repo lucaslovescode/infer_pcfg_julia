@@ -55,74 +55,6 @@ end
 
 function save_model(output_dirname, i, 
         c::PCFG_all, bags_tr::Vector{T}, logging::Vector{T2}, vocab::Dict{String, ta}) where {T<:Bag, T2}
-    save(output_dirname*"model-$i.jld", 
-        "pcfg", c, 
-        "rules", map(BagSave, bags_tr), 
-        "logging", logging, 
-        "vocab", vocab)
-end
-
-function load_model(output_file_name, T)
-    obj = load(output_file_name)
-    c = obj["pcfg"]
-    #@show obj["rules"]
-    bags_tr = (x->T(x)).(obj["rules"])
-    vocab = obj["vocab"]
-    c, bags_tr, obj["logging"], vocab
-end
-
-function read_brown()
-    sentences = [split(l) for l in readlines("brown16.txt")][3:1000]
-    sentences = [ [ta(parse(ta, a)+1) for a in l] for l in sentences ]
-    te = collect(1:length(sentences)).%10 .== 0
-    data_te = sentences[te]
-    data_tr = sentences[te .== false]
-    @show length(data_te) length(data_tr)
-    data_tr, data_te
-end    
-
-###################################################################################
-# データを読み込み，学習を行う．
-###################################################################################
-function main_train(T, output_dirname)
-    mkpath(output_dirname)
-    ROOT = abspath(@__DIR__)
-    DATA_DIR = get(ENV, "DATA_DIR", joinpath(ROOT, "data"))
-     _scratch = get(ENV, "SLURM_TMPDIR", get(ENV, "RC_SCRATCH", joinpath(ROOT, "out")))
-    OUT_DIR  = get(ENV, "OUT_DIR", joinpath(_scratch, "pcfg_run_" * string(getpid())))
-	
-
-    TRAIN_FILE = get(ENV, "TRAIN_FILE", joinpath(ROOT, "training.txt"))
-    TOK_BASENAME = get(ENV, "TOK_BASENAME", "selfies_training")
-    OUT_DIR  = get(ENV, "OUT_DIR", joinpath(_scratch, "pcfg_run_" * string(getpid())))
-    data_tr, data_te, vocab = read_selfies(joinpath(OUT_DIR, "/selfies_training.txt"))
-    
-    #sentences = [[1,2,3,4,1,2], [1,2,3,4,1,2,1,2], [3,4,3,4,3,4], [1,2,3,4,1,2]]
-    #sentences = [ [ta(a) for a in l] for l in sentences ]
-
-    Random.seed!(0)
-
-    logging = []
-
-    #初期化
-    c, bags_init = init(data_tr,length(vocab))
-    #訓練用バッグ
-    bags_tr = [ T(BagSave(bag)) for bag in bags_init ]
-    #テスト用バッグ
-    bags_te = [ Bag_block(smp) for smp in data_te ]
-
-    update_V(c)
-    test(c, bags_te, logging)
-    save_model(output_dirname, 0, c, bags_tr, logging,vocab)
-    for i in 1:3000
-        Base.invokelatest(mcmc_hyperparam, c)
-        train(c, bags_tr)
-        if i%100==0
-            test(c, bags_te, logging)
-            save_model(output_dirname, i, c, bags_tr, logging,vocab)
-        end
-    end
-    
     rev_vocab = Dict(v => k for (k, v) in vocab)
 
     # Collect all nonterminals and terminals
@@ -148,7 +80,7 @@ function main_train(T, output_dirname)
         end
     end
 
-    open("pcfg_rules.txt", "w") do f
+    open("$output_dirname/pcfg_rules-$i.txt", "w") do f
         println(f, "NONTERMINALS")
         for nt in sort(collect(nonterminals))
             println(f, "NT_$nt")
@@ -184,7 +116,61 @@ function main_train(T, output_dirname)
         end
 end
 
-println("Rules saved to pcfg_rules.txt")
+println("Rules saved to pcfg_rules-$i.txt")
+end
+
+function load_model(output_file_name, T)
+    obj = load(output_file_name)
+    c = obj["pcfg"]
+    #@show obj["rules"]
+    bags_tr = (x->T(x)).(obj["rules"])
+    vocab = obj["vocab"]
+    c, bags_tr, obj["logging"], vocab
+end
+
+function read_brown()
+    sentences = [split(l) for l in readlines("brown16.txt")][3:1000]
+    sentences = [ [ta(parse(ta, a)+1) for a in l] for l in sentences ]
+    te = collect(1:length(sentences)).%10 .== 0
+    data_te = sentences[te]
+    data_tr = sentences[te .== false]
+    @show length(data_te) length(data_tr)
+    data_tr, data_te
+end    
+
+###################################################################################
+# データを読み込み，学習を行う．
+###################################################################################
+function main_train(T, output_dirname)
+    mkpath(output_dirname)
+    
+    data_tr, data_te, vocab = read_selfies("/selfies_training.txt")
+    
+    #sentences = [[1,2,3,4,1,2], [1,2,3,4,1,2,1,2], [3,4,3,4,3,4], [1,2,3,4,1,2]]
+    #sentences = [ [ta(a) for a in l] for l in sentences ]
+
+    Random.seed!(0)
+
+    logging = []
+
+    #初期化
+    c, bags_init = init(data_tr,length(vocab))
+    #訓練用バッグ
+    bags_tr = [ T(BagSave(bag)) for bag in bags_init ]
+    #テスト用バッグ
+    bags_te = [ Bag_block(smp) for smp in data_te ]
+
+    update_V(c)
+    test(c, bags_te, logging)
+    save_model(output_dirname, 0, c, bags_tr, logging,vocab)
+    for i in 1:3000
+        Base.invokelatest(mcmc_hyperparam, c)
+        train(c, bags_tr)
+        if i%100==0
+            test(c, bags_te, logging)
+            save_model(output_dirname, i, c, bags_tr, logging,vocab)
+        end
+    end
 end
 
 ###################################################################################
